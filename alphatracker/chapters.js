@@ -278,11 +278,23 @@
               "第 2 週：不知道怎麼部署 → 解決 Railway 路徑問題",
             ],
           },
+        ],
+      },
+      {
+        id: "CH 10",
+        title: "決策點記錄",
+        modules: [
           {
             title: "關鍵決策點",
             coreConcept: "把 CH 02 的決策延伸成「為什麼」：取捨邏輯比結果更重要。",
             paragraphs: ["（同 CH 02 模組三，這裡可以更詳細說明每個決策的思考過程）"],
           },
+        ],
+      },
+      {
+        id: "CH 11",
+        title: "失敗案例",
+        modules: [
           {
             title: "失敗案例集",
             coreConcept: "重複出現的錯誤是系統性問題訊號：要把它固化成檢查清單。",
@@ -296,7 +308,22 @@
         ],
       },
       {
-        id: "CH 10",
+        id: "CH 12",
+        title: "成本追蹤",
+        modules: [
+          {
+            title: "成本追蹤",
+            coreConcept: "用數字管理成本：工具選型直接影響 token 與開發期花費。",
+            paragraphs: [
+              "預估：開發期 USD $85-112",
+              "實際：Cursor Pro $20/月 × 開發月數 + Claude API 少量",
+              "結論：比預估省，因為 Cursor 大幅減少了 API 呼叫",
+            ],
+          },
+        ],
+      },
+      {
+        id: "CH 13",
         title: "AI 協作方式",
         modules: [
           {
@@ -316,19 +343,10 @@
               "重大修改前先請 AI 說明計畫，確認後再動工",
             ],
           },
-          {
-            title: "成本追蹤",
-            coreConcept: "用數字管理成本：工具選型直接影響 token 與開發期花費。",
-            paragraphs: [
-              "預估：開發期 USD $85-112",
-              "實際：Cursor Pro $20/月 × 開發月數 + Claude API 少量",
-              "結論：比預估省，因為 Cursor 大幅減少了 API 呼叫",
-            ],
-          },
         ],
       },
       {
-        id: "CH 11",
+        id: "CH 14",
         title: "技術名詞白話文",
         modules: [
           {
@@ -353,27 +371,6 @@
               "把股票指標轉成向量，就能找「型態最像」的歷史情境。",
               "就像把每首歌轉成頻率圖，找最相似的歌。",
             ],
-          },
-        ],
-      },
-      {
-        id: "CH 12",
-        title: "成果展示",
-        modules: [
-          {
-            title: "系統架構圖（截圖）",
-            coreConcept: "用視覺化把系統複雜度降維，讓讀者一眼理解全貌。",
-            paragraphs: ["（此處可放你的架構圖截圖與說明）"],
-          },
-          {
-            title: "網站截圖（各頁面）",
-            coreConcept: "用截圖呈現「能跑起來」的證據，對履歷與面試特別有效。",
-            paragraphs: ["（此處可放策略總覽 / similar / architect 的頁面截圖）"],
-          },
-          {
-            title: "網站連結",
-            coreConcept: "把成果做成可點擊連結，讓展示更直接。",
-            paragraphs: ["https://trading-system-beta-bice.vercel.app"],
           },
         ],
       },
