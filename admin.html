@@ -63,33 +63,76 @@
       Auth.requireLogin();
 
       const STORAGE_KEY = "lulu_content_overrides";
-      const chapters = (window.AlphaTrackerChapters && AlphaTrackerChapters.chapters) || [];
+      const chaptersAll = (window.AlphaTrackerChapters && AlphaTrackerChapters.chapters) || [];
+      const chapters = chaptersAll.filter((c) => {
+        const n = Number(String(c.id).replace("CH ", ""));
+        return Number.isFinite(n) && n >= 1 && n <= 9;
+      });
 
       const chapterSelectEl = document.getElementById("chapterSelect");
       const editorTitleEl = document.getElementById("editorTitle");
       const modulesEl = document.getElementById("modules");
+      const exportBtn = document.getElementById("exportBtn");
+      const clearBtn = document.getElementById("clearBtn");
+
+      const saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btn btn-primary";
+      saveBtn.textContent = "儲存目前章節";
+
+      const exportAllBtn = document.createElement("button");
+      exportAllBtn.type = "button";
+      exportAllBtn.className = "btn";
+      exportAllBtn.textContent = "匯出全部內容 JSON";
+
+      const clearChapterBtn = document.createElement("button");
+      clearChapterBtn.type = "button";
+      clearChapterBtn.className = "btn";
+      clearChapterBtn.textContent = "清除此章節覆蓋";
+
+      const footerActions = document.createElement("div");
+      footerActions.className = "admin-actions";
+      footerActions.style.marginTop = "12px";
+      footerActions.appendChild(saveBtn);
+      footerActions.appendChild(exportAllBtn);
+      footerActions.appendChild(clearChapterBtn);
+      modulesEl.insertAdjacentElement("beforebegin", footerActions);
+
+      const savedEl = document.createElement("span");
+      savedEl.className = "muted";
+      savedEl.style.marginLeft = "8px";
+      savedEl.style.fontWeight = "900";
+      savedEl.textContent = "";
+      footerActions.appendChild(savedEl);
+
+      function pad2(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function moduleKey(chId, moduleIdx) {
+        const chNum = Number(String(chId).replace("CH ", ""));
+        return `ch${pad2(chNum)}_m${pad2(moduleIdx + 1)}`;
+      }
 
       function readOverrides() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return { chapters: {} };
+          if (!raw) return {};
           const parsed = JSON.parse(raw);
-          if (!parsed || typeof parsed !== "object") return { chapters: {} };
-          if (!parsed.chapters || typeof parsed.chapters !== "object") parsed.chapters = {};
+          if (!parsed || typeof parsed !== "object") return {};
           return parsed;
         } catch {
-          return { chapters: {} };
+          return {};
         }
       }
 
       function writeOverrides(obj) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-      }
-
-      function ensureChapterSlot(overrides, chId) {
-        if (!overrides.chapters[chId]) overrides.chapters[chId] = { modules: {} };
-        if (!overrides.chapters[chId].modules) overrides.chapters[chId].modules = {};
-        return overrides.chapters[chId];
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, message: String((e && e.message) || e || "") };
+        }
       }
 
       function getBaseChapter(chId) {
@@ -97,20 +140,24 @@
       }
 
       function setModuleOverride(chId, moduleIdx, patch) {
+        const key = moduleKey(chId, moduleIdx);
         const overrides = readOverrides();
-        const ch = ensureChapterSlot(overrides, chId);
-        const key = String(moduleIdx);
-        const current = ch.modules[key] && typeof ch.modules[key] === "object" ? ch.modules[key] : {};
-        ch.modules[key] = { ...current, ...patch };
-        writeOverrides(overrides);
+        const current = overrides[key] && typeof overrides[key] === "object" ? overrides[key] : {};
+        overrides[key] = { ...current, ...patch };
+        const res = writeOverrides(overrides);
+        if (!res.ok) {
+          alert("圖片太大，請壓縮後再上傳");
+        }
       }
 
-      function removeChapterOverrides(chId) {
+      function clearChapterOverrides(chId) {
+        const chNum = Number(String(chId).replace("CH ", ""));
+        const prefix = `ch${pad2(chNum)}_`;
         const overrides = readOverrides();
-        if (overrides.chapters && overrides.chapters[chId]) {
-          delete overrides.chapters[chId];
-          writeOverrides(overrides);
+        for (const k of Object.keys(overrides)) {
+          if (k.startsWith(prefix)) delete overrides[k];
         }
+        writeOverrides(overrides);
       }
 
       function toDataUrl(file) {
@@ -152,12 +199,9 @@
         editorTitleEl.textContent = `編輯區｜${base.id}｜${base.title}`;
         modulesEl.innerHTML = "";
 
-        const overrides = readOverrides();
-        const chOverrides = overrides.chapters && overrides.chapters[chId] ? overrides.chapters[chId] : { modules: {} };
-        const modulesOverride = (chOverrides && chOverrides.modules) || {};
-
         base.modules.forEach((m, idx) => {
-          const modOv = modulesOverride[String(idx)] || {};
+          const ov = readOverrides();
+          const modOv = ov[moduleKey(chId, idx)] || {};
 
           const card = document.createElement("div");
           card.className = "module";
@@ -206,26 +250,20 @@
           const conceptLabel = document.createElement("label");
           conceptLabel.textContent = "核心概念（支援換行）";
           const conceptTa = document.createElement("textarea");
-          conceptTa.value = modOv.coreConcept ?? (m.coreConcept || "");
-          conceptTa.addEventListener("input", () => setModuleOverride(chId, idx, { coreConcept: conceptTa.value }));
+          conceptTa.value = modOv.concept ?? (m.coreConcept || "");
+          conceptTa.addEventListener("input", () => setModuleOverride(chId, idx, { concept: conceptTa.value }));
           conceptField.appendChild(conceptLabel);
           conceptField.appendChild(conceptTa);
 
-          // Paragraphs (single textarea; split by blank line)
+          // Content
           const paraField = document.createElement("div");
           paraField.className = "admin-field";
           const paraLabel = document.createElement("label");
-          paraLabel.textContent = "段落內容（每段用空白行分隔；支援換行）";
+          paraLabel.textContent = "內容段落（支援換行）";
           const paraTa = document.createElement("textarea");
-          const baseJoined = (m.paragraphs || []).join("\n\n");
-          paraTa.value = Array.isArray(modOv.paragraphs) ? modOv.paragraphs.join("\n\n") : baseJoined;
-          paraTa.addEventListener("input", () => {
-            const parts = paraTa.value
-              .split(/\n{2,}/)
-              .map((s) => s.trim())
-              .filter(Boolean);
-            setModuleOverride(chId, idx, { paragraphs: parts });
-          });
+          const baseJoined = (m.paragraphs || []).join("\n");
+          paraTa.value = modOv.content ?? baseJoined;
+          paraTa.addEventListener("input", () => setModuleOverride(chId, idx, { content: paraTa.value }));
           paraField.appendChild(paraLabel);
           paraField.appendChild(paraTa);
 
@@ -233,7 +271,26 @@
           const imgField = document.createElement("div");
           imgField.className = "admin-field";
           const imgLabel = document.createElement("label");
-          imgLabel.textContent = "圖片匯入（base64 儲存）";
+          imgLabel.textContent = "圖片區";
+
+          const imgPreview = document.createElement("img");
+          imgPreview.className = "module-image";
+          imgPreview.style.maxWidth = "220px";
+          imgPreview.style.display = modOv.image_base64 ? "block" : "none";
+          if (modOv.image_base64) imgPreview.src = modOv.image_base64;
+
+          const imgActions = document.createElement("div");
+          imgActions.className = "admin-actions";
+
+          const delImg = document.createElement("button");
+          delImg.type = "button";
+          delImg.className = "btn";
+          delImg.textContent = "刪除圖片";
+          delImg.addEventListener("click", () => {
+            setModuleOverride(chId, idx, { image_base64: "" });
+            renderEditor(chId);
+          });
+
           const imgInput = document.createElement("input");
           imgInput.type = "file";
           imgInput.accept = "image/*";
@@ -241,60 +298,14 @@
             const file = imgInput.files && imgInput.files[0];
             if (!file) return;
             const dataUrl = await toDataUrl(file);
-            const overrides2 = readOverrides();
-            const ch2 = ensureChapterSlot(overrides2, chId);
-            const key = String(idx);
-            const cur = (ch2.modules[key] && typeof ch2.modules[key] === "object") ? ch2.modules[key] : {};
-            const imgs = Array.isArray(cur.images) ? cur.images.slice() : [];
-            imgs.push(dataUrl);
-            ch2.modules[key] = { ...cur, images: imgs };
-            writeOverrides(overrides2);
+            setModuleOverride(chId, idx, { image_base64: dataUrl });
             renderEditor(chId);
           });
           imgField.appendChild(imgLabel);
+          imgField.appendChild(imgPreview);
           imgField.appendChild(imgInput);
-
-          // Preview images list (remove)
-          const modImages = Array.isArray(modOv.images) ? modOv.images : [];
-          if (modImages.length) {
-            const preview = document.createElement("div");
-            preview.className = "admin-field";
-            const pl = document.createElement("label");
-            pl.textContent = "已匯入圖片";
-            preview.appendChild(pl);
-            modImages.forEach((src, i) => {
-              const row = document.createElement("div");
-              row.style.display = "flex";
-              row.style.gap = "10px";
-              row.style.alignItems = "center";
-
-              const img = document.createElement("img");
-              img.src = src;
-              img.className = "module-image";
-              img.style.maxWidth = "220px";
-
-              const del = document.createElement("button");
-              del.type = "button";
-              del.className = "btn";
-              del.textContent = "移除";
-              del.addEventListener("click", () => {
-                const overrides3 = readOverrides();
-                const ch3 = ensureChapterSlot(overrides3, chId);
-                const key3 = String(idx);
-                const cur3 = (ch3.modules[key3] && typeof ch3.modules[key3] === "object") ? ch3.modules[key3] : {};
-                const imgs3 = Array.isArray(cur3.images) ? cur3.images.slice() : [];
-                imgs3.splice(i, 1);
-                ch3.modules[key3] = { ...cur3, images: imgs3 };
-                writeOverrides(overrides3);
-                renderEditor(chId);
-              });
-
-              row.appendChild(img);
-              row.appendChild(del);
-              preview.appendChild(row);
-            });
-            body.appendChild(preview);
-          }
+          imgActions.appendChild(delImg);
+          imgField.appendChild(imgActions);
 
           body.appendChild(titleField);
           body.appendChild(conceptField);
@@ -325,16 +336,28 @@
         window.location.search = params.toString();
       });
 
-      document.getElementById("exportBtn").addEventListener("click", () => {
+      // Bottom buttons
+      saveBtn.addEventListener("click", () => {
+        savedEl.textContent = "已儲存 ✓";
+        window.setTimeout(() => (savedEl.textContent = ""), 1400);
+      });
+
+      exportAllBtn.addEventListener("click", () => {
         const data = readOverrides();
         downloadJson("content_override.json", data);
       });
 
-      document.getElementById("clearBtn").addEventListener("click", () => {
+      clearChapterBtn.addEventListener("click", () => {
         const chId = chapterSelectEl.value;
-        removeChapterOverrides(chId);
+        clearChapterOverrides(chId);
         renderEditor(chId);
+        savedEl.textContent = "已清除 ✓";
+        window.setTimeout(() => (savedEl.textContent = ""), 1400);
       });
+
+      // Keep existing buttons in sidebar working too
+      exportBtn.addEventListener("click", () => exportAllBtn.click());
+      clearBtn.addEventListener("click", () => clearChapterBtn.click());
 
       const initial = getInitialChapterId();
       renderChapterOptions(initial);

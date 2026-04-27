@@ -86,6 +86,15 @@
       const chapters = (data && data.chapters) || [];
       const OVERRIDES_KEY = "lulu_content_overrides";
 
+      function pad2(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function flatModuleKey(chapterId, moduleIdx) {
+        const chNum = Number(String(chapterId).replace("CH ", ""));
+        return `ch${pad2(chNum)}_m${pad2(moduleIdx + 1)}`;
+      }
+
       function readOverrides() {
         try {
           const raw = localStorage.getItem(OVERRIDES_KEY);
@@ -100,6 +109,22 @@
 
       function getModuleOverride(chapterId, moduleIdx) {
         const ov = readOverrides();
+        if (!ov) return null;
+
+        // New admin format (flat keys): { "ch01_m01": { title, concept, content, image_base64 }, ... }
+        const flat = ov[flatModuleKey(chapterId, moduleIdx)];
+        if (flat && typeof flat === "object") {
+          const mapped = {};
+          if (typeof flat.title === "string") mapped.title = flat.title;
+          if (typeof flat.concept === "string") mapped.coreConcept = flat.concept;
+          if (typeof flat.content === "string") mapped.paragraphs = [flat.content];
+          if (typeof flat.image_base64 === "string" && flat.image_base64.trim()) {
+            mapped.images = [flat.image_base64];
+          }
+          return mapped;
+        }
+
+        // Backward compatible (older nested format)
         const ch = ov && ov.chapters && ov.chapters[chapterId];
         const mod = ch && ch.modules && ch.modules[String(moduleIdx)];
         return mod && typeof mod === "object" ? mod : null;
