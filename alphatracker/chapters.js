@@ -12,364 +12,274 @@
         title: "專案起點",
         modules: [
           {
-            title: "為什麼做這個專案",
-            coreConcept: "短線交易的決策成敗，取決於[[數據即時性]]與[[邏輯紀律性]]。",
+            title: "商業痛點",
+            coreConcept:
+              "金融短線交易決策成敗，取決於「數據即時性」與「邏輯紀律性」。",
             paragraphs: [
-              "同時為對接年底 AI 架構師職位，需要一個能實踐 [[MCP]]、[[Agentic Workflow]] 與[[時序型 RAG]] 的實戰專案。",
+              "人工盯盤容易受情緒影響，錯過進場時機或無法執行停損紀律。需要一套純數據驅動的系統，替代主觀判斷。",
             ],
           },
           {
-            title: "原始企劃書核心",
-            coreConcept: "建立[[純數據驅動]]的 AI 決策支援系統，並用協定把 AI 與即時金融指標接上。",
+            title: "技術目標",
+            coreConcept:
+              "用真實專案實踐 MCP、Agentic Workflow 與時序型 RAG 三大前沿 AI 架構技術。",
             paragraphs: [
-              "透過 MCP 協定打通 AI 與即時金融指標的屏障，利用 [[Multi-Agent 對審]] 機制抑制交易偏誤。",
-              "目標：優化短線交易勝率，產出高技術門檻的 AI 架構師履歷作品。",
+              "同時作為履歷作品，展示 AI 架構師職位所需的技術深度與工程能力。",
             ],
           },
           {
-            title: "可行性評估",
-            coreConcept: "整體可行，但複雜度分層明顯；風險集中在[[數據來源]]與[[勝率驗證]]。",
+            title: "核心願景",
+            coreConcept:
+              "建立純數據驅動的決策支援系統，透過 Multi-Agent 對審機制抑制交易偏誤，優化勝率。",
             paragraphs: [
-              "最大風險：數據來源（籌碼面）、RAG 勝率驗證的統計限制。",
-              "最終決策：以舊專案為基礎擴充，而非新建專案。",
+              "系統不做自動下單，只做決策支援——最終按不按是人的判斷，AI 提供量化依據。",
             ],
           },
         ],
       },
       {
         id: "CH 02",
-        title: "架構設計",
+        title: "五層架構設計",
         modules: [
           {
-            title: "從手繪到正式架構",
-            coreConcept: "從 4 層手繪圖演化為 5 層正式架構，讓責任邊界更清楚。",
+            title: "架構演進",
+            coreConcept:
+              "從初版手繪圖演化為專業的五層架構：數據整合層 → 策略情境層 → 決策層 → 生成層 → 前台層。",
             paragraphs: [
-              "初版手繪圖定義四層架構，經過討論後演化為五層架構：",
-              "[[數據整合層]] → [[策略情境層]] → [[決策層]] → [[生成層]] → [[前台層]]",
+              "初版手繪只有四層，討論後發現策略情境判斷應獨立為一層，讓決策層專注在 Multi-Agent 邏輯，架構責任邊界更清楚。",
             ],
           },
           {
-            title: "五層架構說明",
-            coreConcept: "把「拿數據、選情境、做決策、生成解讀、呈現」拆成可獨立演進的五層。",
+            title: "三個關鍵設計決策",
+            coreConcept: "每個架構決策背後都有取捨理由，不是隨便選的。",
             paragraphs: [
-              "數據整合層：MCP Server + 三個工具（scan_market / get_technicals / get_chip_data）",
-              "策略情境層：7 個情境 + 情境偵測 Agent + 策略路由器",
-              "決策層：時序型 RAG + Multi-Agent 對審",
-              "生成層：交易決策建議 + 今日局勢解讀",
-              "前台層：三個頁面（策略總覽 / RAG相似度分析 / 架構師儀表板）",
-            ],
-          },
-          {
-            title: "關鍵設計決策",
-            coreConcept: "優先做「可驗證」與「可擴充」的決策，避免過早優化。",
-            paragraphs: [
-              "決策一：Cursor 而非 Claude Code → 省 token 費用，開發期約 $20/月",
-              "決策二：yfinance 而非 Fugle → 先驗證邏輯，後升級數據源",
-              "決策三：Supabase pgvector 而非 ChromaDB → 現有 DB 直接擴充",
-              "決策四：EOD 快照模式 → 解決數據時間點不一致問題",
+              "決策一｜數據源選型：優先選用 yfinance 驗證邏輯，保留未來升級 Fugle 即時 API 的擴充介面。理由：先確認邏輯正確，再換數據源，避免用昂貴的即時數據測試有 bug 的邏輯。",
+              "決策二｜存儲方案：使用 Supabase pgvector 取代 ChromaDB。理由：不需要維護兩套資料庫系統，在現有 PostgreSQL 直接擴充向量欄位，降低維運複雜度。",
+              "決策三｜數據一致性：採用 EOD 快照模式。理由：混用即時報價與昨日籌碼數據，會出現「目標價小於現價」的邏輯矛盾，EOD 統一時間基準解決此問題。",
             ],
           },
         ],
       },
       {
         id: "CH 03",
-        title: "Phase 1：MCP Server",
+        title: "MCP Server",
         modules: [
           {
-            title: "MCP 是什麼（白話文）",
-            coreConcept: "MCP 讓 AI 從[[被動回答]]變成[[主動行動]]：先拿到真實數字，再做判斷。",
+            title: "什麼是 MCP？",
+            coreConcept:
+              "MCP 讓 AI 從「被動回答」轉向「主動調用工具」，就像給 AI 裝上眼睛與手。",
             paragraphs: [
-              "以前：你問 AI，AI 用訓練資料回答。",
-              "有了 MCP：AI 自己去抓即時數據，拿到真實數字後才給建議。",
-              "就像給 AI 裝了眼睛和手。",
+              "傳統 LLM 你給它資料它才能分析。MCP（Model Context Protocol）讓 AI 在推理過程中自己決定需要什麼資料、主動呼叫工具取得，再整合進回答。",
+              "與傳統做法的差異：傳統是開發者預先塞進 prompt（固定、被動）；MCP 是 AI 自己決定查什麼（動態、主動）。",
             ],
           },
           {
-            title: "三個工具的設計",
-            coreConcept: "把常用任務封裝成三個工具，讓上層 Agent 只要做策略與推理。",
+            title: "三支工具的設計",
+            coreConcept: "三支 MCP Tool 覆蓋從找標的到深度分析的完整流程。",
             paragraphs: [
-              "scan_market()：掃描全市場，找符合條件的標的",
-              "get_technicals()：取得單一股票技術指標（RSI/MA/Bias）",
-              "get_chip_data()：取得籌碼數據（法人買賣超/融資）",
+              "Tool 1 scan_market()：掃描全台股，依動態條件篩選候選標的。條件由策略情境層傳入，不同市場情境使用不同篩選邏輯。",
+              "Tool 2 get_technicals(stock_id)：取得技術指標，包含 RSI、MACD、MA20、Bias 乖離率、成交量變化率、均線多空排列。",
+              "Tool 3 get_chip_data(stock_id)：取得籌碼數據，包含法人連續買賣超天數、買賣超張數、融資增減、融券增減。",
             ],
-            code:
-              "Tools:\n- scan_market()\n- get_technicals(ticker)\n- get_chip_data(ticker)\n",
           },
           {
-            title: "遇到的問題與解法",
-            coreConcept: "把「資料格式」與「計算流程」的坑一次踩完，建立穩定輸出。",
+            title: "EOD 快照模式",
+            coreConcept:
+              "統一時間基準，解決不同 API 數據時間點不一致的邏輯矛盾。",
             paragraphs: [
-              "問題一：JSONDecodeError → Claude 回傳 markdown 格式，需先去掉 backtick 再解析",
-              "問題二：scan_market RSI 全部 null → 沒有對每支股票跑 calculate_indicators()",
-              "問題三：chip_score 全部 50 → FinMind token 無效，fallback 到預設值",
-              "問題四：輸出格式多段 part → 改成單一 JSON array",
+              "混用即時報價與昨日籌碼數據會出現「目標價小於現價」的荒謬結果。解法是每日收盤後批次更新所有數據，確保技術面與籌碼面使用同一個時間基準，AI 的分析邏輯不會出現時序錯亂。",
             ],
           },
         ],
       },
       {
         id: "CH 04",
-        title: "Phase 2：策略情境層",
+        title: "策略情境層",
         modules: [
           {
-            title: "為什麼需要策略層",
-            coreConcept: "先判斷[[市場情境]]再選策略，避免「一套條件打天下」。",
+            title: "為什麼需要情境層？",
+            coreConcept:
+              "同一支股票在不同市場環境下，應該用完全不同的邏輯判斷。",
             paragraphs: [
-              "以前 scan_market 是固定邏輯，不管市場狀況都用同一套篩選條件。",
-              "策略層讓系統先判斷市場情境，再選對應的篩選邏輯。",
-              "就像給系統裝了一個「市場判斷大腦」。",
+              "多頭趨勢時追強勢買突破；回檔修正時等支撐找反彈；空頭環境時防禦為主不輕易做多。用同一套固定邏輯掃描所有市場狀態，等於在熊市還在找做多機會。",
             ],
           },
           {
-            title: "7 個情境",
-            coreConcept: "用一組可擴充的情境字典，把策略決策變成可管理的路由問題。",
+            title: "七種市場情境",
+            coreConcept:
+              "系統定義 7 種情境，覆蓋台股大多數常見市場狀態。",
             paragraphs: [
-              "趨勢動能：大盤多頭，找強勢股",
-              "突破新高：長期盤整後突破",
-              "二次突破：強勢股整理後再突破",
-              "除息佈局：除息日前法人持續買",
-              "極端爆量：RVOL ≥ 2，籌碼鎖死",
-              "回檔進場：強勢股回測均線",
-              "防禦避險：大盤跌破季線",
+              "1. 趨勢動能：大盤強勢，追強股買突破",
+              "2. 回檔進場：主升段回檔，找支撐反彈",
+              "3. 防禦避險：大盤弱勢，轉往防禦型標的",
+              "4. 輪動切換：資金從強勢板塊流出，找下一個受益板塊",
+              "5. 底部探測：跌深反彈機會，需搭配籌碼確認",
+              "6. 事件驅動：法說會、財報、政策利多等特定事件",
+              "7. 中性觀望：訊號不明，不出手",
             ],
           },
           {
-            title: "做法 C 的設計",
-            coreConcept: "固定邏輯 + 自動偵測 + 手動覆寫：同時兼顧[[穩定]]與[[智能]]。",
+            title: "混合設計",
+            coreConcept:
+              "固定邏輯庫＋動態偵測代理＋手動 Override，平衡穩定性與靈活性。",
             paragraphs: [
-              "情境庫（固定邏輯）+ 動態偵測（自動選）+ 手動 Override（使用者切換）",
-              "三者結合，既穩定又智能。",
+              "Layer 1 固定邏輯庫：每種情境對應預設篩選條件，穩定可靠。",
+              "Layer 2 動態偵測代理：AI 即時分析加權指數走勢自動判斷當前情境。",
+              "Layer 3 手動 Override：使用者可強制指定情境，優先級最高。",
             ],
           },
         ],
       },
       {
         id: "CH 05",
-        title: "Phase 3：時序型 RAG",
+        title: "時序型 RAG",
         modules: [
           {
-            title: "RAG 是什麼（白話文）",
-            coreConcept: "RAG = 給 AI 裝[[記憶]]：先查歷史相似情境，再生成建議。",
+            title: "為什麼需要 RAG？",
+            coreConcept:
+              "讓 AI 的建議從「感覺」變成「過去相似型態有 68% 漲超過 5%」。",
             paragraphs: [
-              "不是讓 AI 憑空說「這支股票不錯」，而是先查歷史：",
-              "「過去出現相同技術型態時，後來漲超過 5% 的比例是多少」",
-              "用歷史數據說話，而不是感覺。",
+              "直接問 LLM 股票走勢，它給的是訓練數據的感覺，沒有量化依據，也不知道台股歷史規律。時序型 RAG 讓 AI 基於真實歷史數據給出有統計依據的建議。",
             ],
           },
           {
-            title: "向量化設計",
-            coreConcept: "把每個時間點轉成 7 維向量，讓系統可做[[相似度搜尋]]與統計回測。",
+            title: "7 維特徵向量設計",
+            coreConcept:
+              "把每個歷史時間點的市場狀態轉成 7 維向量，讓系統能找到最相似的歷史狀態。",
             paragraphs: [
-              "每個歷史時間點轉成 7 維向量：RSI / Bias / 量能 / MACD / MA排列 / smart_money / 籌碼信心",
-              "帶標註：後 10 日最高漲幅 + 是否達到 5% 目標",
+              "維度 1 RSI：相對強弱指數，衡量動能",
+              "維度 2 MACD 柱狀值：趨勢加速度",
+              "維度 3 Bias 乖離率：偏離均線程度",
+              "維度 4 量能變化率：成交量相對 5 日均量的倍數",
+              "維度 5 籌碼信心分數：法人買超與融資結構的綜合評分",
+              "維度 6 均線多空排列：MA5 > MA20 > MA60 編碼為數值",
+              "維度 7 市場情境標籤：當時的情境層判斷結果",
+              "標籤：每個向量對應後續 10 個交易日最高漲幅，以及是否達到 5% 獲利目標。",
+              "向量庫：使用 Supabase pgvector，在現有 PostgreSQL 直接擴充向量欄位。",
             ],
           },
           {
-            title: "遇到的問題與解法",
-            coreConcept: "資料量與環境載入是兩大坑；先解[[覆蓋率]]與[[可重現性]]。",
+            title: "相似型態查詢流程",
+            coreConcept: "AI 的建議有完整的量化推導鏈，不是黑盒子。",
             paragraphs: [
-              "問題一：backfill 全部 skip → tracked_stocks 只有 11 支，改用台股前 50 大",
-              "問題二：找不到 .env → 加入明確的路徑載入邏輯",
-              "問題三：chip_score 全部 50 → FinMind token 問題，修正後正常",
+              "計算當前股票 7 維向量 → 查詢最相似的 Top-K 歷史向量 → 統計達到 5% 獲利目標的比例 → 輸出歷史勝率與最相似的 3–5 個歷史案例說明。",
+              "此勝率數字成為 Multi-Agent 對審的重要輸入依據。",
             ],
           },
         ],
       },
       {
         id: "CH 06",
-        title: "Phase 4：Multi-Agent 對審",
+        title: "Multi-Agent 對審",
         modules: [
           {
-            title: "為什麼要對審",
-            coreConcept: "用正反辯論抑制偏誤：[[Pro-Bullish]] 找理由、[[Risk Contrarian]] 找風險、[[Arbitrator]] 做裁決。",
+            title: "為什麼需要對審？",
+            coreConcept:
+              "單一 AI Agent 有確認偏誤，傾向給出用戶想聽的答案。",
             paragraphs: [
-              "單一 AI 給答案容易有偏誤，就像只聽一個人的意見。",
-              "對審機制讓兩個 AI 角色辯論，最後由仲裁者整合，給出最終建議。",
+              "你叫 AI 分析一支股票，它傾向說「看起來有機會」，因為那是你想聽的。Multi-Agent 強制讓立場對立的兩個 Agent 互相辯論，再由第三方仲裁，模擬投資委員會的決策流程。",
             ],
           },
           {
-            title: "遇到的問題與解法",
-            coreConcept: "對審要能穩定輸出：先解決[[token 截斷]]、[[評分公式]]、[[編碼]]三個點。",
+            title: "三個 Agent 的角色",
+            coreConcept:
+              "Pro-Bullish 找理由、Risk Contrarian 找碴、Arbitrator 做最終裁決。",
             paragraphs: [
-              "問題一：Risk Contrarian JSON 被截斷 → max_tokens 從 320 提高到 1000",
-              "問題二：final_score 公式偏向負面 → 改用 bull × 0.6 + (100-risk) × 0.4",
-              "問題三：UnicodeEncodeError → 改用 UTF-8 bytes 輸出",
+              "Pro-Bullish Agent 多頭決策代理人：找出做多理由。評分重點：Bias 由負轉正、量能突破、法人連買、RSI 非超買、RAG 歷史勝率高。",
+              "Risk Contrarian Agent 風險找碴代理人：專門否定找風險。評分重點：融資同步大增為散戶追高信號、接近明顯壓力位、大盤同期弱勢、RAG 找到相似失敗案例。",
+              "Arbitrator 仲裁代理人：整合正反意見。輸出推薦標的、多頭論點摘要、風險提示摘要、綜合信心分數 0–100。",
             ],
-            code:
-              "Old: final_score = bull * 0.6 - risk * 0.4\nNew: final_score = bull * 0.6 + (100 - risk) * 0.4\n",
+          },
+          {
+            title: "算法優化：從扣分制到信心權重制",
+            coreConcept: "修正評分公式，確保評分符合實際交易邏輯。",
+            paragraphs: [
+              "初版是簡單加減分制，震盪市場時分數被扣到負數，系統不建議任何標的。",
+              "優化方案：最終信心分數 = 多頭原始分數 × (1 - 風險折扣係數)，風險折扣係數上限 0.8，確保即使風險因子很多，系統仍能輸出「低信心但仍可參考」的建議，而不是放棄所有標的。",
+            ],
           },
         ],
       },
       {
         id: "CH 07",
-        title: "Phase 5：前台層",
+        title: "前台展示與架構師儀表板",
         modules: [
           {
             title: "三個核心頁面",
-            coreConcept: "用前台把複雜系統拆成 3 個可理解的入口：[[策略]]、[[相似度]]、[[儀表板]]。",
+            coreConcept:
+              "前台不只顯示結果，每個頁面都設計成可以在面試中直接 demo 的形式。",
             paragraphs: [
-              "策略總覽（/strategy）：7 個情境掃描 + 推薦排名",
-              "RAG相似度分析（/similar）：輸入大漲股，找相似潛力股",
-              "架構師儀表板（/architect）：MCP 流程圖 + 五層架構圖（履歷用）",
+              "策略總覽頁：顯示當日市場情境判斷、候選標的清單、各標的綜合信心分數排行。",
+              "RAG 相似度分析頁：針對單一標的展示歷史相似型態、相似度分數、後續實際漲跌幅。",
+              "架構師儀表板：展示 MCP 工具調用流程視覺化、Multi-Agent 思考鏈、各層數據流向，專為技術面試設計。",
             ],
           },
           {
-            title: "DecisionModal 設計",
-            coreConcept: "把交易決策濃縮成一個 Modal：即時資訊 + AI 結論 + 劇本 + 指標標籤。",
+            title: "設計原則",
+            coreConcept:
+              "每個元素都要能說話，不只顯示結果，還要顯示為什麼。",
             paragraphs: [
-              "點擊「交易劇本」彈出 Modal，顯示：即時股價 + 漲跌幅、AI 交易導師結論（最終決策 + 三區塊分析）、交易劇本 A/B（進場/停損/目標/風報比）、指標標籤（ATR / RVOL / 支撐壓力 / 財報倒數）。",
-            ],
-          },
-          {
-            title: "資料一致性問題的根本解法",
-            coreConcept: "用[[EOD 快照模式]]統一計算性數值的時間點，避免「目標價 < 現價」矛盾。",
-            paragraphs: [
-              "問題：多個 API 數據時間點不同，導致「目標價 < 現價」矛盾",
-              "解法：EOD 快照模式（decision-snapshot 端點）",
-              "所有計算性數值統一用同一交易日的數據；即時股價另外顯示，標示「即時參考價」",
+              "每個推薦旁附上關鍵理由，每個分數都有組成說明，讓使用者和面試官理解 AI 的決策邏輯，而不是只看到黑盒子輸出。",
             ],
           },
         ],
       },
       {
         id: "CH 08",
-        title: "部署挑戰",
+        title: "部署挑戰與環境優化",
         modules: [
           {
-            title: "Railway Root Directory 問題",
-            coreConcept: "部署設定要跟 repo 結構一致；Root Directory 設錯會讓 import 直接失效。",
+            title: "Railway 三大坑",
+            coreConcept:
+              "本地跑得好好的，部署到雲端就各種炸——這是每個開發者都會經歷的成長儀式。",
             paragraphs: [
-              "原設定：Root Directory = backend/",
-              "問題：mcp/ 目錄不在部署範圍，import 失敗",
-              "解法：Root Directory 改為空白，用 Procfile 指定 cd backend 再啟動",
+              "坑一 Root Directory 設錯：Railway 預設從 repo 根目錄找進入點，但後端在 /backend 子目錄。解法：在 Railway 設定明確指定 Root Directory。教訓：部署設定要跟專案結構完全對齊。",
+              "坑二 Railpack 進入點遺失：自動偵測選到錯誤啟動指令。解法：在 railway.toml 明確寫死 startCommand。教訓：關鍵設定要手動明確指定，不依賴自動偵測。",
+              "坑三 sys.path 路徑引用錯誤：本地相對路徑在部署後工作目錄不同導致 import 失敗。解法：在 main.py 頂部加入 sys.path.insert(0, os.path.dirname(__file__))。教訓：本地就要養成使用明確路徑的習慣。",
             ],
           },
           {
-            title: "Railpack 找不到進入點",
-            coreConcept: "平台需要明確判斷專案型態；根目錄缺少 requirements.txt 會導致偵測失敗。",
+            title: "環境變數管理",
+            coreConcept: "API Key 絕對不能進 git，部署時透過平台介面設定。",
             paragraphs: [
-              "問題：根目錄沒有 requirements.txt，Railpack 不認識這是 Python 專案",
-              "解法：在根目錄建立 requirements.txt（內容複製自 backend/requirements.txt）和 Procfile（指定啟動指令）",
+              "本地使用 .env 檔加 python-dotenv，並把 .env 加入 .gitignore。Railway 部署透過平台環境變數介面輸入。",
+              "程式碼統一用 os.getenv() 讀取，本地和雲端都能正常運作。",
             ],
-          },
-          {
-            title: "sys.path 問題",
-            coreConcept: "部署後工作目錄不同，必須手動修正 module search path。",
-            paragraphs: [
-              "問題：Railway 工作目錄是 /app/backend/，但 mcp/ 在 /app/",
-              "解法：在 main.py 最頂部加入 sys.path.insert(...)",
-            ],
-            code:
-              'import os, sys\nsys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n',
           },
         ],
       },
       {
         id: "CH 09",
-        title: "學習曲線記錄",
+        title: "失敗案例集與認知轉變",
         modules: [
           {
-            title: "認知轉變時間軸",
-            coreConcept: "用時間軸記錄「從不知道到掌握」的關鍵跳點，讓成長可被驗證。",
+            title: "三大失敗案例",
+            coreConcept:
+              "這些失敗不是丟臉的事，是最真實的學習記錄，每一個錯誤背後都有認知盲點被打開。",
             paragraphs: [
-              "第 1 天：不知道 MCP 是什麼 → 理解 MCP 讓 AI 主動調用工具",
-              "第 3 天：不知道 RAG 怎麼做 → 理解向量化 + 相似度搜尋",
-              "第 5 天：不知道 Multi-Agent 怎麼設計 → 理解正反辯論 + 仲裁",
-              "第 2 週：不知道怎麼部署 → 解決 Railway 路徑問題",
-            ],
-          },
-        ],
-      },
-      {
-        id: "CH 10",
-        title: "決策點記錄",
-        modules: [
-          {
-            title: "關鍵決策點",
-            coreConcept: "把 CH 02 的決策延伸成「為什麼」：取捨邏輯比結果更重要。",
-            paragraphs: ["（同 CH 02 模組三，這裡可以更詳細說明每個決策的思考過程）"],
-          },
-        ],
-      },
-      {
-        id: "CH 11",
-        title: "失敗案例",
-        modules: [
-          {
-            title: "失敗案例集",
-            coreConcept: "重複出現的錯誤是系統性問題訊號：要把它固化成檢查清單。",
-            paragraphs: [
-              "chip_score 全部 50（三次出現同樣問題）",
-              "風報比 0.00（公式邏輯錯誤）",
-              "Railway Root Directory 設錯（花了最多時間 debug）",
-              "數據時間點不一致（需要架構層面的根本解法）",
-            ],
-          },
-        ],
-      },
-      {
-        id: "CH 12",
-        title: "成本追蹤",
-        modules: [
-          {
-            title: "成本追蹤",
-            coreConcept: "用數字管理成本：工具選型直接影響 token 與開發期花費。",
-            paragraphs: [
-              "預估：開發期 USD $85-112",
-              "實際：Cursor Pro $20/月 × 開發月數 + Claude API 少量",
-              "結論：比預估省，因為 Cursor 大幅減少了 API 呼叫",
-            ],
-          },
-        ],
-      },
-      {
-        id: "CH 13",
-        title: "AI 協作方式",
-        modules: [
-          {
-            title: "分工原則",
-            coreConcept: "把 AI 當成工程加速器：[[代碼/文件/除錯]]交給 AI，[[交易判斷/決策]]由人拍板。",
-            paragraphs: [
-              "AI 負責：寫程式碼、生成初版邏輯、debug、文件",
-              "你負責：交易邏輯判斷、拍板決策、測試結果、方向調整",
+              "案例一 籌碼信心分數全部輸出 50：評分函數權重邏輯有誤，加分項與扣分項恰好互相抵消。解法：加入分項 debug log 逐一打印，才發現條件布林值寫反了。認知轉變：評分函數一定要有可觀測的中間狀態，否則出錯完全找不到原因。",
+              "案例二 風報比計算輸出 0.00：數據從資料庫取出時是字串格式，字串相減崩潰後被 except 吞掉，預設值 0 傳出去。解法：所有數值計算前加 float() 型別轉換，except 改為明確捕捉 ValueError。認知轉變：寬泛的 except Exception 是最危險的程式碼，它把所有問題藏起來讓你以為一切正常。",
+              "案例三 RAG 查詢結果全部是同一支股票：向量化時忘記 feature normalization，成交量變化率數值範圍遠大於 RSI，向量距離計算完全被成交量維度主導。解法：對所有特徵做 Min-Max 標準化壓縮到 0–1，重新建立向量索引。認知轉變：向量化不是把數字丟進去就好，特徵工程才是 RAG 品質的關鍵。",
             ],
           },
           {
-            title: "如何下 Prompt",
-            coreConcept: "高品質輸入 = 高品質輸出：先描述問題，再描述期望結果，遇到 bug 就貼完整錯誤。",
+            title: "學習曲線記錄",
+            coreConcept:
+              "兩週前不知道 MCP 是什麼，四週後完成了完整的 AI 決策系統。",
             paragraphs: [
-              "先描述問題，再描述期望結果",
-              "遇到 bug 把完整錯誤訊息貼上",
-              "重大修改前先請 AI 說明計畫，確認後再動工",
+              "第一週：搞懂 MCP 協定概念，嘗試建立第一個 Tool，失敗三次才讓 Claude 成功 call 到工具。",
+              "第二週：理解 RAG 不只是把文字存進向量庫，特徵設計決定一切，重寫整個向量化流程。",
+              "第三週：Multi-Agent 第一版輸出完全是廢話，大量調 Prompt 才讓 Agent 真正針鋒相對而不是互相說好話。",
+              "第四週：部署踩坑修坑，理解「本地能跑」和「部署能跑」是兩件事。",
             ],
           },
-        ],
-      },
-      {
-        id: "CH 14",
-        title: "技術名詞白話文",
-        modules: [
           {
-            title: "MCP（Model Context Protocol）",
-            coreConcept: "讓 AI 可以[[主動去外部拿數據]]的協定，就像給 AI 裝上一支手。",
-            paragraphs: ["讓 AI 可以自己去查資料，而不是只靠訓練資料回答。"],
-          },
-          {
-            title: "RAG（Retrieval-Augmented Generation）",
-            coreConcept: "先查歷史記憶，再生成答案；像考試前先翻筆記。",
-            paragraphs: ["重點是「先取回」再「生成」，避免憑空作答。"],
-          },
-          {
-            title: "Multi-Agent",
-            coreConcept: "多個角色各司其職、互相制衡；像公司正反方辯論。",
-            paragraphs: ["最後由仲裁者（或主管）整合，輸出可落地的結論。"],
-          },
-          {
-            title: "向量資料庫",
-            coreConcept: "把複雜特徵轉成數字陣列，才能計算[[相似度]]。",
+            title: "AI 協作方式說明",
+            coreConcept: "AI 幫你做和你用 AI 做，是完全不同的事。",
             paragraphs: [
-              "把股票指標轉成向量，就能找「型態最像」的歷史情境。",
-              "就像把每首歌轉成頻率圖，找最相似的歌。",
+              "AI 負責：程式碼具體實作、debug 初步排查、文件初稿、技術方案選項列舉。",
+              "我負責：決定用哪個技術方案（AI 只能給選項，判斷是我的）、驗證輸出是否符合交易邏輯（AI 不懂我的投資直覺）、定義評分標準的權重（主觀判斷 AI 沒有立場）、確認架構設計方向（AI 給建議拍板是我的）。",
+              "最重要的認知：AI 是加速器不是替代品。它讓我用三分之一的時間完成原本需要三倍時間的工作，但每一個關鍵決策點，我都必須真正理解並做出判斷，否則做出來的只是 AI 的作品，不是我的。",
             ],
           },
         ],
