@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lulu 後台編輯器</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="container topbar-inner">
+          <div class="brand small">
+            <div class="brand-mark" aria-hidden="true">L</div>
+            <div class="brand-text">
+              <div class="brand-title">Lulu 後台編輯器</div>
+              <div class="brand-subtitle">Admin</div>
+            </div>
+          </div>
+
+          <div class="topbar-actions">
+            <a class="btn btn-ghost" href="./topics.html">返回網站</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="container page">
+        <div class="admin-layout">
+          <aside class="admin-panel">
+            <h2>章節選擇</h2>
+            <div class="admin-field">
+              <label for="chapterSelect">章節</label>
+              <select id="chapterSelect" aria-label="章節選擇"></select>
+            </div>
+
+            <div class="admin-actions">
+              <button id="exportBtn" class="btn btn-primary" type="button">匯出 JSON</button>
+              <button id="clearBtn" class="btn" type="button">清除本章覆蓋</button>
+            </div>
+
+            <p class="muted" style="margin-top: 12px">
+              所有修改會自動儲存到 localStorage（key: <code>lulu_content_overrides</code>）。
+            </p>
+          </aside>
+
+          <section class="admin-panel">
+            <h2 id="editorTitle">編輯區</h2>
+            <div id="modules" class="admin-modules"></div>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="container footer-inner">
+          <span class="muted">Admin · Lulu Learning Journey</span>
+        </div>
+      </footer>
+    </div>
+
+    <script src="./assets/auth.js"></script>
+    <script src="./alphatracker/chapters.js"></script>
+    <script>
+      Auth.requireLogin();
+
+      const STORAGE_KEY = "lulu_content_overrides";
+      const chapters = (window.AlphaTrackerChapters && AlphaTrackerChapters.chapters) || [];
+
+      const chapterSelectEl = document.getElementById("chapterSelect");
+      const editorTitleEl = document.getElementById("editorTitle");
+      const modulesEl = document.getElementById("modules");
+
+      function readOverrides() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return { chapters: {} };
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return { chapters: {} };
+          if (!parsed.chapters || typeof parsed.chapters !== "object") parsed.chapters = {};
+          return parsed;
+        } catch {
+          return { chapters: {} };
+        }
+      }
+
+      function writeOverrides(obj) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+      }
+
+      function ensureChapterSlot(overrides, chId) {
+        if (!overrides.chapters[chId]) overrides.chapters[chId] = { modules: {} };
+        if (!overrides.chapters[chId].modules) overrides.chapters[chId].modules = {};
+        return overrides.chapters[chId];
+      }
+
+      function getBaseChapter(chId) {
+        return chapters.find((c) => c.id === chId) || chapters[0];
+      }
+
+      function setModuleOverride(chId, moduleIdx, patch) {
+        const overrides = readOverrides();
+        const ch = ensureChapterSlot(overrides, chId);
+        const key = String(moduleIdx);
+        const current = ch.modules[key] && typeof ch.modules[key] === "object" ? ch.modules[key] : {};
+        ch.modules[key] = { ...current, ...patch };
+        writeOverrides(overrides);
+      }
+
+      function removeChapterOverrides(chId) {
+        const overrides = readOverrides();
+        if (overrides.chapters && overrides.chapters[chId]) {
+          delete overrides.chapters[chId];
+          writeOverrides(overrides);
+        }
+      }
+
+      function toDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("file read error"));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function downloadJson(filename, data) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function renderChapterOptions(activeId) {
+        chapterSelectEl.innerHTML = "";
+        for (const ch of chapters) {
+          const opt = document.createElement("option");
+          opt.value = ch.id;
+          opt.textContent = `${ch.id}｜${ch.title}`;
+          if (ch.id === activeId) opt.selected = true;
+          chapterSelectEl.appendChild(opt);
+        }
+      }
+
+      function renderEditor(chId) {
+        const base = getBaseChapter(chId);
+        if (!base) return;
+
+        editorTitleEl.textContent = `編輯區｜${base.id}｜${base.title}`;
+        modulesEl.innerHTML = "";
+
+        const overrides = readOverrides();
+        const chOverrides = overrides.chapters && overrides.chapters[chId] ? overrides.chapters[chId] : { modules: {} };
+        const modulesOverride = (chOverrides && chOverrides.modules) || {};
+
+        base.modules.forEach((m, idx) => {
+          const modOv = modulesOverride[String(idx)] || {};
+
+          const card = document.createElement("div");
+          card.className = "module";
+
+          const header = document.createElement("div");
+          header.className = "module-toggle";
+          header.style.cursor = "default";
+
+          const titleWrap = document.createElement("div");
+          titleWrap.className = "module-title";
+
+          const dot = document.createElement("span");
+          dot.className = "dot";
+          dot.setAttribute("aria-hidden", "true");
+
+          const titleText = document.createElement("span");
+          titleText.textContent = `模組 ${idx + 1}：${m.title}`;
+          titleWrap.appendChild(dot);
+          titleWrap.appendChild(titleText);
+
+          const right = document.createElement("span");
+          right.className = "muted";
+          right.textContent = "即時儲存";
+
+          header.appendChild(titleWrap);
+          header.appendChild(right);
+
+          const body = document.createElement("div");
+          body.className = "module-body";
+          body.style.display = "block";
+
+          // Title override
+          const titleField = document.createElement("div");
+          titleField.className = "admin-field";
+          const titleLabel = document.createElement("label");
+          titleLabel.textContent = "模組標題";
+          const titleInput = document.createElement("input");
+          titleInput.value = modOv.title ?? m.title;
+          titleInput.addEventListener("input", () => setModuleOverride(chId, idx, { title: titleInput.value }));
+          titleField.appendChild(titleLabel);
+          titleField.appendChild(titleInput);
+
+          // Core concept
+          const conceptField = document.createElement("div");
+          conceptField.className = "admin-field";
+          const conceptLabel = document.createElement("label");
+          conceptLabel.textContent = "核心概念（支援換行）";
+          const conceptTa = document.createElement("textarea");
+          conceptTa.value = modOv.coreConcept ?? (m.coreConcept || "");
+          conceptTa.addEventListener("input", () => setModuleOverride(chId, idx, { coreConcept: conceptTa.value }));
+          conceptField.appendChild(conceptLabel);
+          conceptField.appendChild(conceptTa);
+
+          // Paragraphs (single textarea; split by blank line)
+          const paraField = document.createElement("div");
+          paraField.className = "admin-field";
+          const paraLabel = document.createElement("label");
+          paraLabel.textContent = "段落內容（每段用空白行分隔；支援換行）";
+          const paraTa = document.createElement("textarea");
+          const baseJoined = (m.paragraphs || []).join("\n\n");
+          paraTa.value = Array.isArray(modOv.paragraphs) ? modOv.paragraphs.join("\n\n") : baseJoined;
+          paraTa.addEventListener("input", () => {
+            const parts = paraTa.value
+              .split(/\n{2,}/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            setModuleOverride(chId, idx, { paragraphs: parts });
+          });
+          paraField.appendChild(paraLabel);
+          paraField.appendChild(paraTa);
+
+          // Image upload
+          const imgField = document.createElement("div");
+          imgField.className = "admin-field";
+          const imgLabel = document.createElement("label");
+          imgLabel.textContent = "圖片匯入（base64 儲存）";
+          const imgInput = document.createElement("input");
+          imgInput.type = "file";
+          imgInput.accept = "image/*";
+          imgInput.addEventListener("change", async () => {
+            const file = imgInput.files && imgInput.files[0];
+            if (!file) return;
+            const dataUrl = await toDataUrl(file);
+            const overrides2 = readOverrides();
+            const ch2 = ensureChapterSlot(overrides2, chId);
+            const key = String(idx);
+            const cur = (ch2.modules[key] && typeof ch2.modules[key] === "object") ? ch2.modules[key] : {};
+            const imgs = Array.isArray(cur.images) ? cur.images.slice() : [];
+            imgs.push(dataUrl);
+            ch2.modules[key] = { ...cur, images: imgs };
+            writeOverrides(overrides2);
+            renderEditor(chId);
+          });
+          imgField.appendChild(imgLabel);
+          imgField.appendChild(imgInput);
+
+          // Preview images list (remove)
+          const modImages = Array.isArray(modOv.images) ? modOv.images : [];
+          if (modImages.length) {
+            const preview = document.createElement("div");
+            preview.className = "admin-field";
+            const pl = document.createElement("label");
+            pl.textContent = "已匯入圖片";
+            preview.appendChild(pl);
+            modImages.forEach((src, i) => {
+              const row = document.createElement("div");
+              row.style.display = "flex";
+              row.style.gap = "10px";
+              row.style.alignItems = "center";
+
+              const img = document.createElement("img");
+              img.src = src;
+              img.className = "module-image";
+              img.style.maxWidth = "220px";
+
+              const del = document.createElement("button");
+              del.type = "button";
+              del.className = "btn";
+              del.textContent = "移除";
+              del.addEventListener("click", () => {
+                const overrides3 = readOverrides();
+                const ch3 = ensureChapterSlot(overrides3, chId);
+                const key3 = String(idx);
+                const cur3 = (ch3.modules[key3] && typeof ch3.modules[key3] === "object") ? ch3.modules[key3] : {};
+                const imgs3 = Array.isArray(cur3.images) ? cur3.images.slice() : [];
+                imgs3.splice(i, 1);
+                ch3.modules[key3] = { ...cur3, images: imgs3 };
+                writeOverrides(overrides3);
+                renderEditor(chId);
+              });
+
+              row.appendChild(img);
+              row.appendChild(del);
+              preview.appendChild(row);
+            });
+            body.appendChild(preview);
+          }
+
+          body.appendChild(titleField);
+          body.appendChild(conceptField);
+          body.appendChild(paraField);
+          body.appendChild(imgField);
+
+          card.appendChild(header);
+          card.appendChild(body);
+          modulesEl.appendChild(card);
+        });
+      }
+
+      function getInitialChapterId() {
+        const params = new URLSearchParams(window.location.search);
+        const q = (params.get("ch") || "").trim().toUpperCase();
+        if (q) {
+          const normalized = q.startsWith("CH") ? q : `CH ${q}`;
+          const hit = chapters.find((c) => c.id === normalized);
+          if (hit) return hit.id;
+        }
+        return chapters[0] ? chapters[0].id : "CH 01";
+      }
+
+      chapterSelectEl.addEventListener("change", () => {
+        const chId = chapterSelectEl.value;
+        const params = new URLSearchParams(window.location.search);
+        params.set("ch", chId.replace("CH ", ""));
+        window.location.search = params.toString();
+      });
+
+      document.getElementById("exportBtn").addEventListener("click", () => {
+        const data = readOverrides();
+        downloadJson("content_override.json", data);
+      });
+
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        const chId = chapterSelectEl.value;
+        removeChapterOverrides(chId);
+        renderEditor(chId);
+      });
+
+      const initial = getInitialChapterId();
+      renderChapterOptions(initial);
+      renderEditor(initial);
+    </script>
+  </body>
+</html>
+

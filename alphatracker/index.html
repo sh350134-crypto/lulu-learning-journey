@@ -84,6 +84,26 @@
 
       const data = window.AlphaTrackerChapters;
       const chapters = (data && data.chapters) || [];
+      const OVERRIDES_KEY = "lulu_content_overrides";
+
+      function readOverrides() {
+        try {
+          const raw = localStorage.getItem(OVERRIDES_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return null;
+          return parsed;
+        } catch {
+          return null;
+        }
+      }
+
+      function getModuleOverride(chapterId, moduleIdx) {
+        const ov = readOverrides();
+        const ch = ov && ov.chapters && ov.chapters[chapterId];
+        const mod = ch && ch.modules && ch.modules[String(moduleIdx)];
+        return mod && typeof mod === "object" ? mod : null;
+      }
 
       function chapterKey(chId) {
         return `alphatracker:completed:${chId}`;
@@ -152,6 +172,12 @@
       function renderModules(chapter) {
         modulesEl.innerHTML = "";
         chapter.modules.forEach((m, idx) => {
+          const override = getModuleOverride(chapter.id, idx) || {};
+          const merged = {
+            ...m,
+            ...override,
+          };
+
           const wrap = document.createElement("section");
           wrap.className = "module";
 
@@ -168,7 +194,7 @@
           dot.setAttribute("aria-hidden", "true");
 
           const title = document.createElement("span");
-          title.textContent = m.title;
+          title.textContent = merged.title;
 
           const icon = document.createElement("span");
           icon.className = "module-icon";
@@ -193,30 +219,34 @@
           label.textContent = "核心概念";
 
           const concept = document.createElement("p");
-          concept.className = "p";
-          concept.innerHTML = escapeHtml(m.coreConcept || "").replace(
-            /\[\[(.*?)\]\]/g,
-            '<span class="highlight">$1</span>',
-          );
+          concept.className = "p content-text";
+          concept.innerHTML = formatRichText(merged.coreConcept || "");
 
           body.appendChild(label);
           body.appendChild(concept);
 
-          (m.paragraphs || []).forEach((p) => {
+          (merged.paragraphs || []).forEach((p) => {
             const el = document.createElement("p");
-            el.className = "p";
-            el.innerHTML = escapeHtml(p).replace(
-              /\[\[(.*?)\]\]/g,
-              '<span class="highlight">$1</span>',
-            );
+            el.className = "p content-text";
+            el.innerHTML = formatRichText(p);
             body.appendChild(el);
           });
 
-          if (m.code) {
+          if (merged.code) {
             const code = document.createElement("pre");
             code.className = "code";
-            code.textContent = m.code;
+            code.textContent = merged.code;
             body.appendChild(code);
+          }
+
+          if (Array.isArray(merged.images) && merged.images.length) {
+            merged.images.forEach((src) => {
+              const img = document.createElement("img");
+              img.className = "module-image";
+              img.src = src;
+              img.alt = "Module image";
+              body.appendChild(img);
+            });
           }
 
           btn.addEventListener("click", () => {
@@ -237,6 +267,12 @@
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#39;");
+      }
+
+      function formatRichText(text) {
+        return escapeHtml(text)
+          .replace(/\n/g, "<br>")
+          .replace(/\[\[(.*?)\]\]/g, '<span class="highlight">$1</span>');
       }
 
       function renderChapterById(chId) {
