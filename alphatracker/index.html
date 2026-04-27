@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lulu 自學旅程｜AlphaTracker AI</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="container topbar-inner">
+          <div class="brand small">
+            <div class="brand-mark" aria-hidden="true">L</div>
+            <div class="brand-text">
+              <div class="brand-title">AlphaTracker AI</div>
+              <div class="brand-subtitle">動能交易 AI 決策中台</div>
+            </div>
+          </div>
+
+          <div class="topbar-actions">
+            <a class="btn btn-ghost" href="../topics.html">返回主題</a>
+            <button id="logoutBtn" class="btn btn-ghost" type="button">登出</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="container page">
+        <div class="split">
+          <aside class="sidebar" aria-label="章節導覽">
+            <div class="sidebar-header">
+              <p class="sidebar-title">章節導覽</p>
+            </div>
+            <nav class="nav" id="chapterNav"></nav>
+          </aside>
+
+          <section>
+            <div class="mobile-chapter-select">
+              <select id="chapterSelect" aria-label="選擇章節"></select>
+            </div>
+
+            <article class="content" id="content">
+              <h1 class="chapter-title" id="chapterTitle">載入中…</h1>
+              <p class="chapter-subtitle" id="chapterSubtitle"></p>
+              <div id="modules"></div>
+
+              <div class="chapter-actions">
+                <button class="btn btn-primary" id="markDoneBtn" type="button">
+                  標記本章完成
+                </button>
+                <button class="btn btn-ghost" id="markUndoneBtn" type="button">
+                  取消完成
+                </button>
+              </div>
+            </article>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="container footer-inner">
+          <span class="muted">AlphaTracker AI · Lulu Learning Journey</span>
+        </div>
+      </footer>
+    </div>
+
+    <script src="../assets/auth.js"></script>
+    <script src="./chapters.js"></script>
+    <script>
+      Auth.requireLogin();
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        Auth.logout();
+        window.location.replace("../index.html");
+      });
+
+      const navEl = document.getElementById("chapterNav");
+      const selectEl = document.getElementById("chapterSelect");
+      const titleEl = document.getElementById("chapterTitle");
+      const subtitleEl = document.getElementById("chapterSubtitle");
+      const modulesEl = document.getElementById("modules");
+      const doneBtn = document.getElementById("markDoneBtn");
+      const undoneBtn = document.getElementById("markUndoneBtn");
+
+      const data = window.AlphaTrackerChapters;
+      const chapters = (data && data.chapters) || [];
+
+      function chapterKey(chId) {
+        return `alphatracker:completed:${chId}`;
+      }
+
+      function isDone(chId) {
+        return localStorage.getItem(chapterKey(chId)) === "1";
+      }
+
+      function setDone(chId, yes) {
+        if (yes) localStorage.setItem(chapterKey(chId), "1");
+        else localStorage.removeItem(chapterKey(chId));
+      }
+
+      function getInitialChapterId() {
+        const params = new URLSearchParams(window.location.search);
+        const q = (params.get("ch") || "").trim().toUpperCase();
+        if (q) {
+          const normalized = q.startsWith("CH") ? q : `CH ${q}`;
+          const hit = chapters.find((c) => c.id === normalized);
+          if (hit) return hit.id;
+        }
+        return chapters[0] ? chapters[0].id : "CH 01";
+      }
+
+      function renderNav(activeId) {
+        navEl.innerHTML = "";
+        for (const ch of chapters) {
+          const a = document.createElement("a");
+          a.href = `./index.html?ch=${encodeURIComponent(ch.id.replace("CH ", ""))}`;
+          if (ch.id === activeId) a.classList.add("active");
+
+          const left = document.createElement("div");
+          left.className = "ch-id";
+          left.textContent = ch.id;
+
+          const right = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "ch-name";
+          name.textContent = ch.title;
+
+          const desc = document.createElement("div");
+          desc.className = "ch-desc";
+          desc.textContent = isDone(ch.id) ? "已完成" : "未完成";
+
+          right.appendChild(name);
+          right.appendChild(desc);
+
+          a.appendChild(left);
+          a.appendChild(right);
+          navEl.appendChild(a);
+        }
+      }
+
+      function renderSelect(activeId) {
+        selectEl.innerHTML = "";
+        for (const ch of chapters) {
+          const opt = document.createElement("option");
+          opt.value = ch.id;
+          opt.textContent = `${ch.id}｜${ch.title}${isDone(ch.id) ? "（完成）" : ""}`;
+          if (ch.id === activeId) opt.selected = true;
+          selectEl.appendChild(opt);
+        }
+      }
+
+      function renderModules(chapter) {
+        modulesEl.innerHTML = "";
+        chapter.modules.forEach((m, idx) => {
+          const wrap = document.createElement("section");
+          wrap.className = "module";
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "module-toggle";
+          btn.setAttribute("aria-expanded", "false");
+
+          const left = document.createElement("div");
+          left.className = "module-title";
+
+          const dot = document.createElement("span");
+          dot.className = "dot";
+          dot.setAttribute("aria-hidden", "true");
+
+          const title = document.createElement("span");
+          title.textContent = m.title;
+
+          const icon = document.createElement("span");
+          icon.className = "module-icon";
+          icon.textContent = `M${String(idx + 1).padStart(2, "0")}`;
+
+          left.appendChild(dot);
+          left.appendChild(title);
+
+          const right = document.createElement("span");
+          right.className = "muted";
+          right.textContent = "點擊展開/收合";
+
+          btn.appendChild(left);
+          btn.appendChild(icon);
+          btn.appendChild(right);
+
+          const body = document.createElement("div");
+          body.className = "module-body";
+
+          const label = document.createElement("div");
+          label.className = "label-gold";
+          label.textContent = "核心概念";
+
+          const concept = document.createElement("p");
+          concept.className = "p";
+          concept.innerHTML = escapeHtml(m.coreConcept || "").replace(
+            /\[\[(.*?)\]\]/g,
+            '<span class="highlight">$1</span>',
+          );
+
+          body.appendChild(label);
+          body.appendChild(concept);
+
+          (m.paragraphs || []).forEach((p) => {
+            const el = document.createElement("p");
+            el.className = "p";
+            el.innerHTML = escapeHtml(p).replace(
+              /\[\[(.*?)\]\]/g,
+              '<span class="highlight">$1</span>',
+            );
+            body.appendChild(el);
+          });
+
+          if (m.code) {
+            const code = document.createElement("pre");
+            code.className = "code";
+            code.textContent = m.code;
+            body.appendChild(code);
+          }
+
+          btn.addEventListener("click", () => {
+            const open = wrap.classList.toggle("open");
+            btn.setAttribute("aria-expanded", open ? "true" : "false");
+          });
+
+          wrap.appendChild(btn);
+          wrap.appendChild(body);
+          modulesEl.appendChild(wrap);
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function renderChapterById(chId) {
+        const chapter = chapters.find((c) => c.id === chId) || chapters[0];
+        if (!chapter) return;
+
+        titleEl.textContent = `${chapter.id}｜${chapter.title}`;
+        subtitleEl.textContent = isDone(chapter.id) ? "狀態：已完成" : "狀態：進行中";
+        renderModules(chapter);
+        renderNav(chapter.id);
+        renderSelect(chapter.id);
+
+        doneBtn.onclick = () => {
+          setDone(chapter.id, true);
+          renderChapterById(chapter.id);
+        };
+        undoneBtn.onclick = () => {
+          setDone(chapter.id, false);
+          renderChapterById(chapter.id);
+        };
+      }
+
+      selectEl.addEventListener("change", () => {
+        const chId = selectEl.value;
+        const params = new URLSearchParams(window.location.search);
+        params.set("ch", chId.replace("CH ", ""));
+        window.location.search = params.toString();
+      });
+
+      const initial = getInitialChapterId();
+      renderChapterById(initial);
+    </script>
+  </body>
+</html>

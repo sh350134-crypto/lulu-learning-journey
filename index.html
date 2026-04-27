@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lulu 自學旅程｜登入</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-card">
+        <header class="auth-header">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">L</div>
+            <div class="brand-text">
+              <div class="brand-title">Lulu 自學旅程</div>
+              <div class="brand-subtitle">Learning Journey · Projects · Notes</div>
+            </div>
+          </div>
+        </header>
+
+        <div class="auth-body">
+          <h1 class="page-title">登入</h1>
+          <p class="muted">
+            輸入密碼即可進入。登入後同裝置 12 小時內免重新登入。
+          </p>
+
+          <form id="loginForm" class="form" autocomplete="off">
+            <label class="field">
+              <span class="field-label">密碼</span>
+              <div class="field-control">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  inputmode="text"
+                  placeholder="請輸入密碼"
+                  required
+                />
+              </div>
+            </label>
+
+            <button class="btn btn-primary" type="submit">進入</button>
+            <div id="loginError" class="form-error" role="alert" aria-live="polite"></div>
+          </form>
+        </div>
+
+        <footer class="auth-footer">
+          <a class="link" href="./topics.html">前往主題清單</a>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./assets/auth.js"></script>
+    <script>
+      // 你之後可自行改密碼（大小寫需一致）
+      const PASSWORD = "0702";
+
+      // 若已登入且仍在 12 小時有效期，直接跳轉
+      if (window.Auth && Auth.isLoggedIn()) {
+        window.location.replace("./topics.html");
+      }
+
+      const form = document.getElementById("loginForm");
+      const input = document.getElementById("password");
+      const errorEl = document.getElementById("loginError");
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+
+        const ok = Auth.login(input.value, PASSWORD);
+        if (!ok) {
+          errorEl.textContent = "密碼錯誤，請再試一次。";
+          input.focus();
+          input.select();
+          return;
+        }
+
+        window.location.replace("./topics.html");
+      });
+    </script>
+  </body>
+</html>
